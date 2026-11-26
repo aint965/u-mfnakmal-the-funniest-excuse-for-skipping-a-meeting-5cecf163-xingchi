@@ -55,6 +55,36 @@ import { join } from "node:path";
 const EXCUSE =
   "Sorry, I can't make it — I'm stuck in a meeting about why I keep missing meetings, and it's running over.";
 
+// Runtime self-check: the sealed gate requires entry.txt to be UTF-8 text
+// of 1–200 characters, not only whitespace, and the judge reads exactly one
+// line. Validate the excuse before writing anything, so a bad line can never
+// ship — fail loudly instead of submitting an invalid entry.
+function validateExcuse(line: string): void {
+  const fail = (reason: string): never => {
+    throw new Error(`Invalid excuse: ${reason}`);
+  };
+  if (!Buffer.from(line, "utf8").toString("utf8").includes(line)) {
+    fail("not valid UTF-8");
+  }
+  if (line.trim().length === 0) {
+    fail("blank or whitespace-only");
+  }
+  const chars = [...line].length;
+  if (chars < 1 || chars > 200) {
+    fail(`length ${chars} characters, outside the 1–200 range`);
+  }
+  if (line.includes("\n") || line.includes("\r")) {
+    fail("must be exactly one line");
+  }
+}
+
+try {
+  validateExcuse(EXCUSE);
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+}
+
 const outDir = process.argv[2] ?? "/output";
 mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, "entry.txt"), EXCUSE, "utf8");
